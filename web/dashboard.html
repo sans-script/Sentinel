@@ -1253,7 +1253,7 @@
                 const diskVal = document.getElementById("hw-disk-val");
                 const diskPct = document.getElementById("hw-disk-pct");
                 const diskSegs = document.getElementById("hw-disk-segs");
-                if (diskVal) diskVal.innerHTML = `<span class="tt-hw-num">${hw.disk_used_pct}%</span> <span class="tt-hw-sub">(${hw.disk_free} livres)</span>`;
+                if (diskVal) diskVal.innerHTML = `<span class="tt-hw-num">${hw.disk_used_pct}%</span> <span class="tt-hw-sub">(${hw.disk_free} free)</span>`;
                 if (diskPct) diskPct.textContent = ``;
                 if (diskSegs) diskSegs.innerHTML = renderSegments(hw.disk_used_pct, 12);
             }
@@ -1279,7 +1279,7 @@
 
                 hwHtml = `
               <div class="tt-hw-section">
-                  <div class="tt-pm2-title">[ TELEMETRIA DA VM ]</div>
+                  <div class="tt-pm2-title">[ VM TELEMETRY ]</div>
                   <div class="tt-hw-grid">
                       <div class="tt-hw-card">
                           <div class="tt-hw-header">
@@ -1307,7 +1307,7 @@
                               <span class="tt-hw-pct" id="hw-disk-pct"></span>
                           </div>
                           <div class="tt-hw-val" id="hw-disk-val">
-                              <span class="tt-hw-num">${hw.disk_used_pct}%</span> <span class="tt-hw-sub">(${hw.disk_free} livres)</span>
+                              <span class="tt-hw-num">${hw.disk_used_pct}%</span> <span class="tt-hw-sub">(${hw.disk_free} free)</span>
                           </div>
                           <div class="tt-hw-segments" id="hw-disk-segs">${renderSegments(hw.disk_used_pct, 12)}</div>
                       </div>
@@ -1433,8 +1433,8 @@
 
                         <div class="log-terminal-wrap">
                             <div class="log-terminal-title">
-                                <span>[ LOGS PM2 ]</span>
-                                <span id="log-status-badge" style="color: #64748b; font-size: 0.68rem; letter-spacing:0.05em;">AGUARDANDO</span>
+                                <span>[ PM2 LOGS ]</span>
+                                <span id="log-status-badge" style="color: #64748b; font-size: 0.68rem; letter-spacing:0.05em;">WAITING</span>
                             </div>
                             <div class="log-terminal" id="log-output">
                                 <div class="log-empty-msg">
@@ -1510,7 +1510,7 @@
                                 </div>
                             `;
                 }
-                if (badgeElem) badgeElem.innerText = "ERRO";
+                if (badgeElem) badgeElem.innerText = "ERROR";
             } finally {
                 if (btnElem) btnElem.disabled = false;
                 if (iconElem) iconElem.classList.remove("spin-icon");

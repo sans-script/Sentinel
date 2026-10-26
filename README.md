@@ -6,7 +6,11 @@ It is meant as a base you can point at any group of hosts: one Python file, one 
 
 ![Sentinel dashboard showing 52 demo targets](docs/dashboard.png)
 
-*The screenshot uses the built-in demo mode, with made-up services and telemetry.*
+Clicking a target opens its details: CPU, memory and disk, the busiest Nginx routes, PM2 processes and the latest logs.
+
+![Details panel for one VM: telemetry, Nginx routes, PM2 processes and logs](docs/dashboard-details.png)
+
+*The screenshots use the built-in demo mode, with made-up services and telemetry.*
 
 ## What it does
 
