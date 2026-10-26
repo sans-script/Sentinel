@@ -1,0 +1,1603 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SENTINEL 2.0</title>
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
+    <meta name="referrer" content="no-referrer">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700;800&family=Inter:wght@600;700;800&display=swap"
+        rel="stylesheet">
+    <style>
+        :root {
+            --bg-grid: #06090e;
+            --grid-line: rgba(255, 255, 255, 0.04);
+
+            --bg-up: #064e3b;
+
+            --border-up: #059669;
+            --text-up: #ecfdf5;
+
+            --bg-down: #7f1d1d;
+
+            --border-down: #dc2626;
+            --text-down: #fef2f2;
+
+            --bg-warning: #854d0e;
+
+            --border-warning: #ca8a04;
+            --text-warning: #fefce8;
+
+            --cross-color: rgba(255, 255, 255, 0.35);
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        html,
+        body {
+            width: 100%;
+            height: 100vh;
+            max-height: 100vh;
+            overflow: hidden;
+            background-color: var(--bg-grid);
+            background-image:
+                linear-gradient(to right, var(--grid-line) 1px, transparent 1px),
+                linear-gradient(to bottom, var(--grid-line) 1px, transparent 1px);
+            background-size: 32px 32px;
+            color: #f1f5f9;
+            font-family: 'Inter', sans-serif;
+            display: flex;
+            flex-direction: column;
+            padding: 0.8rem 1.4rem;
+        }
+
+        ::selection {
+            background: rgba(56, 189, 248, 0.35);
+            color: #ffffff;
+        }
+
+        .hud-header {
+            width: 100%;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            height: 32px;
+            min-height: 32px;
+            margin-bottom: 0.6rem;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+            padding: 0 0.4rem 0.4rem 0.4rem;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.82rem;
+            letter-spacing: 0.5px;
+        }
+
+        .hud-title {
+            font-weight: 800;
+            color: #38bdf8;
+            letter-spacing: 1px;
+        }
+
+        .hud-meta {
+            color: #94a3b8;
+            display: flex;
+            gap: 1.5rem;
+        }
+
+        .hud-meta b {
+            color: #f1f5f9;
+        }
+
+        .grid {
+            width: 100%;
+            flex: 1;
+            min-height: 0;
+            display: grid;
+            grid-template-columns: repeat(8, 1fr);
+            grid-template-rows: repeat(7, 1fr);
+            gap: 0.55rem;
+        }
+
+        .card {
+            position: relative;
+            border-radius: 0;
+
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            padding: 0.4rem 0.6rem;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            text-decoration: none;
+            transition: border-color 0.15s ease, background-color 0.15s ease;
+            cursor: pointer;
+            overflow: visible;
+
+        }
+
+        .corner {
+            position: absolute;
+            width: 7px;
+            height: 7px;
+            pointer-events: none;
+            z-index: 10;
+        }
+
+        .corner::before {
+            content: '';
+            position: absolute;
+            top: 3px;
+            left: 0;
+            width: 7px;
+            height: 1px;
+            background-color: var(--cross-color);
+            transition: background-color 0.15s ease;
+        }
+
+        .corner::after {
+            content: '';
+            position: absolute;
+            left: 3px;
+            top: 0;
+            width: 1px;
+            height: 7px;
+            background-color: var(--cross-color);
+            transition: background-color 0.15s ease;
+        }
+
+        .corner-tl {
+            top: -4px;
+            left: -4px;
+        }
+
+        .corner-tr {
+            top: -4px;
+            right: -4px;
+        }
+
+        .corner-bl {
+            bottom: -4px;
+            left: -4px;
+        }
+
+        .corner-br {
+            bottom: -4px;
+            right: -4px;
+        }
+
+        .card:hover {
+            z-index: 20;
+            filter: brightness(1.2);
+            border-color: #fff !important;
+        }
+
+        .card:hover .corner::before,
+        .card:hover .corner::after {
+            background-color: #ffffff;
+        }
+
+        .status-up {
+            background-color: var(--bg-up);
+            border-color: var(--border-up);
+            color: var(--text-up);
+        }
+
+        .status-down {
+            background-color: var(--bg-down);
+            border-color: var(--border-down);
+            color: var(--text-down);
+            animation: pulse-cad 1.8s infinite ease-in-out;
+        }
+
+        .status-warning {
+            background-color: var(--bg-warning);
+            border-color: var(--border-warning);
+            color: var(--text-warning);
+        }
+
+        .card-hero {
+            grid-column: span 2;
+        }
+
+        .card-hero .site-name {
+            font-size: 1.3rem;
+            font-weight: 800;
+        }
+
+        .card-highlight .site-name,
+        .card-small .site-name {
+            font-size: 1.05rem;
+            font-weight: 700;
+        }
+
+        .site-name {
+            font-size: 1.05rem;
+            font-weight: 700;
+            line-height: 1.25;
+            overflow-wrap: break-word;
+            word-break: normal;
+            max-width: 100%;
+            pointer-events: none;
+            letter-spacing: -0.2px;
+        }
+
+        @keyframes pulse-cad {
+            0% {
+                opacity: 1;
+                border-color: var(--border-down);
+            }
+
+            50% {
+                opacity: 0.55;
+                border-color: rgba(239, 68, 68, 0.4);
+            }
+
+            100% {
+                opacity: 1;
+                border-color: var(--border-down);
+            }
+        }
+
+        #tooltip {
+            position: fixed;
+            display: none;
+            z-index: 1000;
+            background: #04070c;
+            border: 1px solid rgba(255, 255, 255, 0.28);
+            border-radius: 0;
+
+            padding: 1.1rem 1.4rem;
+            color: #f8fafc;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            box-shadow: 0 16px 36px rgba(0, 0, 0, 0.85);
+            pointer-events: none;
+            min-width: 360px;
+            max-width: 480px;
+        }
+
+        .tt-header {
+            font-size: 0.72rem;
+            color: #64748b;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            padding-bottom: 0.45rem;
+            margin-bottom: 0.7rem;
+            display: flex;
+            justify-content: space-between;
+            letter-spacing: 1px;
+        }
+
+        .tt-title {
+            font-weight: 800;
+            font-size: 1.12rem;
+            margin-bottom: 0.75rem;
+            color: #38bdf8;
+            font-family: 'Inter', sans-serif;
+            letter-spacing: -0.3px;
+        }
+
+        .tt-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 1.2rem;
+            padding: 0.3rem 0;
+            font-size: 0.84rem;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+        }
+
+        .tt-label {
+            color: #94a3b8;
+            font-weight: 500;
+            min-width: 80px;
+        }
+
+        .tt-val {
+            color: #f1f5f9;
+            text-align: right;
+            word-break: break-all;
+        }
+
+        .tt-pm2 {
+            margin-top: 0.8rem;
+            padding-top: 0.65rem;
+            border-top: 1px dashed rgba(255, 255, 255, 0.16);
+        }
+
+        .tt-pm2-title {
+            font-size: 0.75rem;
+            color: #38bdf8;
+            font-weight: 700;
+            letter-spacing: 0.8px;
+            margin-bottom: 0.55rem;
+        }
+
+        .tt-pm2-container {
+            display: flex;
+            flex-direction: column;
+            gap: 0.45rem;
+        }
+
+        .pm2-card {
+            background: rgba(255, 255, 255, 0.025);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            padding: 0.5rem 0.65rem;
+            display: flex;
+            flex-direction: column;
+            gap: 0.35rem;
+            min-width: 0;
+        }
+
+        .pm2-card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 0.5rem;
+            flex-wrap: wrap;
+            min-width: 0;
+        }
+
+        .pm2-name-wrap {
+            display: flex;
+            align-items: center;
+            gap: 0.45rem;
+            min-width: 0;
+            flex: 1 1 auto;
+            flex-wrap: nowrap;
+        }
+
+        .pm2-dot {
+            width: 8px;
+            height: 8px;
+            min-width: 8px;
+            min-height: 8px;
+            max-width: 8px;
+            max-height: 8px;
+            aspect-ratio: 1 / 1;
+            border-radius: 50%;
+            display: inline-block;
+            flex-shrink: 0;
+            box-sizing: border-box;
+            vertical-align: middle;
+        }
+
+        .pm2-dot.online {
+            background: #10b981;
+            box-shadow: 0 0 6px rgba(16, 185, 129, 0.75);
+        }
+
+        .pm2-dot.offline {
+            background: #ef4444;
+            box-shadow: 0 0 6px rgba(239, 68, 68, 0.75);
+        }
+
+        .pm2-name {
+            font-weight: 700;
+            font-size: 0.86rem;
+            color: #f8fafc;
+            font-family: 'Inter', sans-serif;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            min-width: 0;
+        }
+
+        .pm2-pid {
+            font-size: 0.78rem;
+            color: #64748b;
+            font-family: 'JetBrains Mono', monospace;
+            font-weight: 500;
+            margin-left: 0.2rem;
+            white-space: nowrap;
+            flex-shrink: 0;
+        }
+
+        .pm2-tags {
+            display: flex;
+            align-items: center;
+            gap: 0.35rem;
+            flex-shrink: 0;
+            margin-left: auto;
+        }
+
+        .tag-mode {
+            font-size: 0.72rem;
+            font-weight: 700;
+            padding: 2px 6px;
+            letter-spacing: 0.5px;
+            font-family: 'JetBrains Mono', monospace;
+            background: rgba(56, 189, 248, 0.12);
+            color: #38bdf8;
+            border: 1px solid rgba(56, 189, 248, 0.3);
+            white-space: nowrap;
+            flex-shrink: 0;
+        }
+
+        .tag-mode.cluster {
+            background: rgba(14, 165, 233, 0.15);
+            color: #38bdf8;
+            border-color: rgba(56, 189, 248, 0.35);
+        }
+
+        .tag-mode.fork {
+            background: rgba(148, 163, 184, 0.12);
+            color: #94a3b8;
+            border-color: rgba(148, 163, 184, 0.25);
+        }
+
+        .tag-restarts {
+            font-size: 0.72rem;
+            font-weight: 600;
+            padding: 2px 6px;
+            font-family: 'JetBrains Mono', monospace;
+            background: rgba(255, 255, 255, 0.05);
+            color: #94a3b8;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            white-space: nowrap;
+            flex-shrink: 0;
+            display: inline-flex;
+            align-items: center;
+            font-variant-numeric: tabular-nums;
+        }
+
+        .tag-restarts.warning {
+            background: rgba(245, 158, 11, 0.15);
+            color: #fbbf24;
+            border-color: rgba(245, 158, 11, 0.35);
+        }
+
+        .pm2-metrics {
+            display: flex;
+            align-items: center;
+            gap: 0.8rem;
+            font-size: 0.82rem;
+            color: #94a3b8;
+            font-family: 'JetBrains Mono', monospace;
+            padding-top: 0.3rem;
+            border-top: 1px solid rgba(255, 255, 255, 0.04);
+            flex-wrap: wrap;
+        }
+
+        .pm2-metric-item {
+            display: flex;
+            align-items: center;
+            gap: 0.35rem;
+        }
+
+        .m-lbl {
+            color: #64748b;
+            font-size: 0.82rem;
+            font-weight: 600;
+        }
+
+        .m-val {
+            color: #f1f5f9;
+            font-size: 0.82rem;
+            font-weight: 700;
+        }
+
+        .pm2-metric-divider {
+            width: 1px;
+            height: 11px;
+            background: rgba(255, 255, 255, 0.12);
+        }
+
+        .tt-hw-section {
+            margin-top: 0.55rem;
+            padding-top: 0.5rem;
+            border-top: 1px dashed rgba(255, 255, 255, 0.14);
+        }
+
+        .tt-hw-grid {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 0.45rem;
+            margin-top: 0.4rem;
+        }
+
+        .tt-hw-card {
+            background: rgba(255, 255, 255, 0.025);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            padding: 0.45rem 0.5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 0.25rem;
+            min-width: 0;
+        }
+
+        .tt-hw-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 0.2rem;
+            white-space: nowrap;
+        }
+
+        .tt-hw-lbl {
+            font-size: 0.68rem;
+            color: #64748b;
+            font-weight: 700;
+            letter-spacing: 0.5px;
+        }
+
+        .tt-hw-pct {
+            font-size: 0.70rem;
+            color: #38bdf8;
+            font-family: 'JetBrains Mono', monospace;
+            font-weight: 700;
+            font-variant-numeric: tabular-nums;
+        }
+
+        .tt-hw-val {
+            font-size: 0.78rem;
+            font-weight: 700;
+            color: #f1f5f9;
+            font-family: 'JetBrains Mono', monospace;
+            font-variant-numeric: tabular-nums;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            display: flex;
+            align-items: baseline;
+            gap: 0.25rem;
+        }
+
+        .tt-hw-num {
+            font-variant-numeric: tabular-nums;
+            color: #f8fafc;
+            font-weight: 700;
+        }
+
+        .tt-hw-sub {
+            font-size: 0.66rem;
+            color: #94a3b8;
+            font-weight: 500;
+            font-variant-numeric: tabular-nums;
+            white-space: nowrap;
+        }
+
+        .tt-hw-segments {
+            display: flex;
+            gap: 2px;
+            width: 100%;
+            margin-top: 0.15rem;
+        }
+
+        .tt-seg {
+            flex: 1;
+            height: 5px;
+            background: rgba(255, 255, 255, 0.08);
+            border-radius: 0;
+            transition: all 0.2s ease;
+        }
+
+        .tt-seg.active.ok {
+            background: #10b981;
+            box-shadow: 0 0 5px rgba(16, 185, 129, 0.45);
+        }
+
+        .tt-seg.active.warn {
+            background: #f59e0b;
+            box-shadow: 0 0 5px rgba(245, 158, 11, 0.45);
+        }
+
+        .tt-seg.active.danger {
+            background: #ef4444;
+            box-shadow: 0 0 6px rgba(239, 68, 68, 0.65);
+            animation: seg-pulse 1.4s infinite ease-in-out;
+        }
+
+        @keyframes seg-pulse {
+
+            0%,
+            100% {
+                opacity: 1;
+            }
+
+            50% {
+                opacity: 0.55;
+            }
+        }
+
+        .tt-routes-wrap {
+            margin-top: 0.55rem;
+            padding-top: 0.5rem;
+            border-top: 1px dashed rgba(255, 255, 255, 0.14);
+        }
+
+        .tt-routes-list {
+            display: flex;
+            flex-direction: column;
+            gap: 0.35rem;
+            margin-top: 0.4rem;
+        }
+
+        .tt-route-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background: rgba(255, 255, 255, 0.025);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            padding: 0.35rem 0.55rem;
+            gap: 0.5rem;
+            font-size: 0.74rem;
+        }
+
+        .tt-route-method {
+            font-size: 0.68rem;
+            font-weight: 700;
+            padding: 1px 5px;
+            letter-spacing: 0.5px;
+            font-family: 'JetBrains Mono', monospace;
+            background: rgba(56, 189, 248, 0.12);
+            color: #38bdf8;
+            border: 1px solid rgba(56, 189, 248, 0.3);
+            flex-shrink: 0;
+        }
+
+        .tt-route-method.post {
+            background: rgba(245, 158, 11, 0.15);
+            color: #fbbf24;
+            border-color: rgba(245, 158, 11, 0.35);
+        }
+
+        .tt-route-method.delete {
+            background: rgba(239, 68, 68, 0.15);
+            color: #f87171;
+            border-color: rgba(239, 68, 68, 0.35);
+        }
+
+        .tt-route-path {
+            flex: 1;
+            color: #cbd5e1;
+            font-family: 'JetBrains Mono', monospace;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .tt-route-count {
+            font-size: 0.72rem;
+            color: #94a3b8;
+            font-weight: 600;
+            font-family: 'JetBrains Mono', monospace;
+            flex-shrink: 0;
+        }
+
+        .sheet-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: rgba(0, 0, 0, 0.5);
+            backdrop-filter: blur(2px);
+            z-index: 1999;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.2s ease;
+        }
+
+        .sheet-overlay.open {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        .side-sheet {
+            position: fixed;
+            top: 1rem;
+            bottom: 1rem;
+            right: 1rem;
+            width: 500px;
+            height: calc(100vh - 2rem);
+            max-height: calc(100vh - 2rem);
+            background: rgba(4, 7, 12, 0.98);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.24);
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.95);
+            transform: translateX(calc(100% + 2rem));
+            transition: transform 0.24s cubic-bezier(0.16, 1, 0.3, 1);
+            z-index: 2000;
+            display: flex;
+            flex-direction: column;
+            padding: 1.3rem 1.5rem;
+            gap: 0.75rem;
+            font-family: 'JetBrains Mono', monospace;
+            overflow: hidden;
+        }
+
+        .side-sheet.open {
+            transform: translateX(0);
+        }
+
+        .side-sheet.resizing {
+            transition: none !important;
+            user-select: none !important;
+        }
+
+        .sheet-resizer {
+            position: absolute;
+            left: 0;
+            top: 0;
+            bottom: 0;
+            width: 10px;
+            cursor: ew-resize;
+            z-index: 100;
+            background: transparent;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .sheet-resizer::before {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 0;
+            bottom: 0;
+            width: 3px;
+            background: transparent;
+            transition: background-color 0.15s ease, box-shadow 0.15s ease;
+        }
+
+        .sheet-resizer::after {
+            content: '';
+            width: 2px;
+            height: 36px;
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 2px;
+            transition: all 0.15s ease;
+        }
+
+        .sheet-resizer:hover::before,
+        .side-sheet.resizing .sheet-resizer::before {
+            background: #38bdf8;
+            box-shadow: 0 0 10px rgba(56, 189, 248, 0.9);
+        }
+
+        .sheet-resizer:hover::after,
+        .side-sheet.resizing .sheet-resizer::after {
+            background: #ffffff;
+            height: 52px;
+            box-shadow: 0 0 8px rgba(56, 189, 248, 0.8);
+        }
+
+        .sheet-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            padding-bottom: 0.6rem;
+            flex-shrink: 0;
+        }
+
+        .sheet-tag {
+            font-size: 0.74rem;
+            color: #64748b;
+            letter-spacing: 1px;
+            font-weight: 700;
+        }
+
+        .sheet-actions {
+            display: flex;
+            align-items: center;
+            gap: 0.45rem;
+        }
+
+        .sheet-action-btn {
+            background: rgba(56, 189, 248, 0.08);
+            border: 1px solid rgba(56, 189, 248, 0.45);
+            color: #38bdf8;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.72rem;
+            font-weight: 700;
+            padding: 2px 8px;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            letter-spacing: 0.5px;
+            transition: all 0.15s ease;
+        }
+
+        .sheet-action-btn:hover {
+            background: rgba(56, 189, 248, 0.22);
+            color: #ffffff;
+            border-color: #38bdf8;
+            box-shadow: 0 0 8px rgba(56, 189, 248, 0.35);
+        }
+
+        .sheet-close-btn {
+            background: transparent;
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            color: #94a3b8;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.72rem;
+            padding: 2px 8px;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            letter-spacing: 0.5px;
+            transition: all 0.15s;
+        }
+
+        .sheet-close-btn:hover {
+            background: rgba(255, 255, 255, 0.1);
+            color: #fff;
+            border-color: #fff;
+        }
+
+        #sheet-body {
+            display: flex;
+            flex-direction: column;
+            flex: 1;
+            min-height: 0;
+            gap: 0.65rem;
+            overflow-y: auto;
+            overflow-x: hidden;
+            padding-right: 0.35rem;
+            scrollbar-width: thin;
+            scrollbar-color: rgba(56, 189, 248, 0.3) #020408;
+        }
+
+        #sheet-body::-webkit-scrollbar {
+            width: 5px;
+        }
+
+        #sheet-body::-webkit-scrollbar-track {
+            background: rgba(0, 0, 0, 0.2);
+        }
+
+        #sheet-body::-webkit-scrollbar-thumb {
+            background: rgba(56, 189, 248, 0.2);
+            border-radius: 0;
+        }
+
+        #sheet-body::-webkit-scrollbar-thumb:hover {
+            background: #38bdf8;
+        }
+
+        .btn-open-site {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            background: rgba(56, 189, 248, 0.1);
+            border: 1px solid rgba(56, 189, 248, 0.35);
+            color: #38bdf8;
+            text-decoration: none;
+            padding: 0.55rem;
+            font-size: 0.82rem;
+            font-weight: 700;
+            letter-spacing: 0.5px;
+            transition: all 0.15s ease;
+            margin-top: 0.2rem;
+            flex-shrink: 0;
+        }
+
+        .btn-open-site:hover {
+            background: #38bdf8;
+            color: #04070c;
+        }
+
+        .log-terminal-wrap {
+            margin-top: 0.5rem;
+            border-top: 1px dashed rgba(255, 255, 255, 0.14);
+            padding-top: 0.65rem;
+            display: flex;
+            flex-direction: column;
+            min-height: 220px;
+            flex-shrink: 0;
+        }
+
+        .log-terminal-title {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 0.75rem;
+            color: #38bdf8;
+            font-weight: 700;
+            letter-spacing: 0.8px;
+            margin-bottom: 0.45rem;
+            flex-shrink: 0;
+        }
+
+        .log-terminal {
+            min-height: 180px;
+            height: 220px;
+            background: #020408;
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            padding: 0.75rem 0.85rem;
+            color: #cbd5e1;
+            font-size: 0.72rem;
+            line-height: 1.45;
+            overflow-y: auto;
+            overflow-x: auto;
+            font-family: 'JetBrains Mono', monospace;
+            scrollbar-width: thin;
+            scrollbar-color: rgba(56, 189, 248, 0.4) #020408;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .log-empty-msg {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            flex: 1;
+            height: 100%;
+            width: 100%;
+            color: #94a3b8;
+            font-size: 0.82rem;
+            text-align: center;
+            gap: 0.45rem;
+            padding: 1.5rem;
+            font-family: 'Inter', sans-serif;
+            letter-spacing: 0;
+        }
+
+        .log-content-text {
+            white-space: pre-wrap;
+            word-break: break-word;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.73rem;
+            line-height: 1.45;
+            color: #cbd5e1;
+            margin: 0;
+            padding: 0;
+            width: 100%;
+        }
+
+        .log-terminal::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+
+        .log-terminal::-webkit-scrollbar-track {
+            background: #020408;
+            border-left: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .log-terminal::-webkit-scrollbar-thumb {
+            background: rgba(56, 189, 248, 0.25);
+            border: 1px solid rgba(56, 189, 248, 0.45);
+        }
+
+        .log-terminal::-webkit-scrollbar-thumb:hover {
+            background: #38bdf8;
+            box-shadow: 0 0 8px rgba(56, 189, 248, 0.8);
+        }
+
+        @keyframes spin-anim {
+            0% {
+                transform: rotate(0deg);
+            }
+
+            100% {
+                transform: rotate(360deg);
+            }
+        }
+
+        .spin-icon {
+            animation: spin-anim 1.2s linear infinite;
+        }
+
+        @media (min-width: 3200px) {
+            body {
+                padding: 1.2rem 2.2rem;
+            }
+
+            .hud-header {
+                height: 42px;
+                min-height: 42px;
+                font-size: 1.15rem;
+                margin-bottom: 1rem;
+                padding: 0 0.6rem 0.6rem 0.6rem;
+            }
+
+            .grid {
+                gap: 0.85rem;
+            }
+
+            .card-hero .site-name {
+                font-size: 1.8rem;
+            }
+
+            .card-highlight .site-name,
+            .card-small .site-name {
+                font-size: 1.4rem;
+            }
+
+            .side-sheet {
+                width: 640px;
+                top: 1.5rem;
+                bottom: 1.5rem;
+                right: 1.5rem;
+                height: calc(100vh - 3rem);
+                max-height: calc(100vh - 3rem);
+            }
+
+            .tt-title {
+                font-size: 1.45rem;
+                margin-bottom: 1rem;
+            }
+
+            .tt-row {
+                font-size: 1.05rem;
+                padding: 0.4rem 0;
+            }
+
+            .log-terminal {
+                font-size: 0.88rem;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="hud-header">
+        <div class="hud-title">
+            SENTINEL 2.0
+        </div>
+        <div class="hud-meta">
+            <div>TARGETS: <b>52</b></div>
+            <div>STATUS: <b style="color: #6ee7b7;" id="meta-online">--/52</b></div>
+            <div>SYNC: <b id="meta-sync">--:--:--</b></div>
+        </div>
+    </div>
+
+    <div class="grid" id="grid">
+
+    </div>
+
+    <div id="sheet-overlay" class="sheet-overlay" onclick="closeSheet()"></div>
+    <div id="side-sheet" class="side-sheet">
+
+        <div id="sheet-resizer" class="sheet-resizer" title="Arraste para redimensionar a largura do painel"></div>
+        <span class="corner corner-tl"></span>
+        <span class="corner corner-tr"></span>
+        <span class="corner corner-bl"></span>
+        <span class="corner corner-br"></span>
+        <div class="sheet-header">
+            <div class="sheet-tag">[ APPLICATION DETAILS ]</div>
+            <div class="sheet-actions">
+                <button id="sheet-refresh-btn" class="sheet-action-btn" onclick="refreshAllSheetData()"
+                    title="Refresh metrics and logs">
+                    <svg id="sheet-refresh-icon" width="10" height="10" viewBox="0 0 24 24" fill="none"
+                        stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                        <polyline points="23 4 23 10 17 10"></polyline>
+                        <polyline points="1 20 1 14 7 14"></polyline>
+                        <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+                    </svg>
+                    <span>REFRESH</span>
+                </button>
+                <button class="sheet-close-btn" onclick="closeSheet()">
+                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+                        stroke-linecap="round" stroke-linejoin="round">
+                        <line x1="18" y1="6" x2="6" y2="18"></line>
+                        <line x1="6" y1="6" x2="18" y2="18"></line>
+                    </svg>
+                    <span>ESC</span>
+                </button>
+            </div>
+        </div>
+        <div id="sheet-body">
+
+        </div>
+    </div>
+
+    <script>
+
+        const sheet = document.getElementById("side-sheet");
+        const overlay = document.getElementById("sheet-overlay");
+        const sheetBody = document.getElementById("sheet-body");
+        let currentResultsMap = {};
+        let currentActiveName = null;
+        let logFetchTimeout = null;
+
+        const urlParams = new URLSearchParams(window.location.search);
+        let authToken = urlParams.get('token') || sessionStorage.getItem('sentinel_auth_token') || '';
+        if (urlParams.get('token')) {
+            authToken = urlParams.get('token');
+            sessionStorage.setItem('sentinel_auth_token', authToken);
+            urlParams.delete('token');
+            const cleanUrl = window.location.pathname + (urlParams.toString() ? '?' + urlParams.toString() : '');
+            window.history.replaceState({}, '', cleanUrl);
+        }
+
+        function getAuthHeaders() {
+            const h = {};
+            if (authToken) {
+                h['Authorization'] = 'Bearer ' + authToken;
+            }
+            return h;
+        }
+
+        function promptAuthToken() {
+            const token = prompt("Enter the Sentinel access token:");
+            if (token && token.trim()) {
+                authToken = token.trim();
+                sessionStorage.setItem('sentinel_auth_token', authToken);
+                fetchStatus();
+            }
+        }
+
+        async function fetchStatus() {
+            try {
+                const res = await fetch("/api/status?_=" + Date.now(), { headers: getAuthHeaders() });
+                if (res.status === 401) {
+                    document.getElementById("meta-sync").innerText = "401 AUTH";
+                    document.getElementById("meta-online").innerText = "0/--";
+                    document.getElementById("meta-online").style.color = "#fca5a5";
+                    const grid = document.getElementById("grid");
+                    grid.innerHTML = `
+                        <div style="grid-column: 1 / -1; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:0.9rem; padding:3rem; background:rgba(239,68,68,0.06); border:1px solid rgba(239,68,68,0.3); font-family:'JetBrains Mono',monospace;">
+                            <div style="font-size:1.05rem; font-weight:700; color:#fca5a5;">[ ACCESS DENIED - HTTP 401 ]</div>
+                            <div style="font-size:0.82rem; color:#94a3b8; max-width:480px; text-align:center; line-height:1.5;">The server requires an access token. Reload the page and enter it when asked.</div>
+                            <button onclick="promptAuthToken()" style="background:#38bdf8; color:#04070c; border:none; padding:8px 18px; font-weight:800; font-family:'JetBrains Mono',monospace; cursor:pointer; font-size:0.8rem; letter-spacing:0.5px;">INFORMAR TOKEN</button>
+                        </div>
+                    `;
+                    return;
+                }
+                const data = await res.json();
+
+                const timeOnly = data.updated_at.includes(" ")
+                    ? data.updated_at.split(" ")[1]
+                    : data.updated_at;
+                document.getElementById("meta-sync").innerText = timeOnly;
+
+                const total = data.results.length;
+                const online = data.results.filter((r) => r.is_online).length;
+                document.getElementById("meta-online").innerText = online + "/" + total;
+
+                const grid = document.getElementById("grid");
+                grid.innerHTML = "";
+                currentResultsMap = {};
+
+                data.results.forEach((r) => {
+                    currentResultsMap[r.name] = r;
+
+                    let statusCls =
+                        r.status_cls || (r.is_online ? "status-up" : "status-down");
+                    let cardSizeCls =
+                        r.size === "hero"
+                            ? "card-hero"
+                            : r.size === "small"
+                                ? "card-small"
+                                : "card-highlight";
+
+                    const card = document.createElement("div");
+                    card.className = `card ${cardSizeCls} ${statusCls}`;
+                    card.dataset.name = r.name;
+                    card.style.cursor = "pointer";
+                    card.innerHTML = `
+                                <span class="corner corner-tl"></span>
+                                <span class="corner corner-tr"></span>
+                                <span class="corner corner-bl"></span>
+                                <span class="corner corner-br"></span>
+                                <div class="site-name">${r.name}</div>
+                            `;
+
+                    card.addEventListener("click", () => handleCardClick(r.name));
+
+                    grid.appendChild(card);
+                });
+
+                if (currentActiveName && currentResultsMap[currentActiveName]) {
+                    updateSheetMetrics(currentResultsMap[currentActiveName]);
+                }
+            } catch (err) {
+                console.error("Falha ao atualizar painel:", err);
+            }
+        }
+
+        function renderSegments(pct, totalSegs) {
+            totalSegs = totalSegs || 12;
+            const activeCount = Math.min(totalSegs, Math.max(0, Math.round((pct / 100) * totalSegs)));
+            let html = "";
+            for (let i = 0; i < totalSegs; i++) {
+                const isActive = i < activeCount;
+                let colorCls = "ok";
+                if (i >= Math.floor(totalSegs * 0.8)) colorCls = "danger";
+                else if (i >= Math.floor(totalSegs * 0.6)) colorCls = "warn";
+                html += '<span class="tt-seg ' + (isActive ? 'active ' + colorCls : '') + '"></span>';
+            }
+            return html;
+        }
+
+        function updateSheetMetrics(r) {
+            const statusEl = document.getElementById("sheet-status-val");
+            const latencyEl = document.getElementById("sheet-latency-val");
+            if (statusEl) {
+                statusEl.textContent = r.status_label;
+                statusEl.style.color = r.is_online ? "#6ee7b7" : "#fca5a5";
+            }
+            if (latencyEl) {
+                latencyEl.textContent = r.latency_ms + " ms";
+            }
+
+            if (r.hardware) {
+                const hw = r.hardware;
+                const loadAvgStr = (Number(hw.load_avg) || 0).toFixed(2);
+                const ramUsedGb = ((hw.ram_used_mb || 0) / 1024).toFixed(1);
+                const ramTotalGb = ((hw.ram_total_mb || 0) / 1024).toFixed(1);
+
+                const cpuVal = document.getElementById("hw-cpu-val");
+                const cpuPct = document.getElementById("hw-cpu-pct");
+                const cpuSegs = document.getElementById("hw-cpu-segs");
+                if (cpuVal) cpuVal.innerHTML = `<span class="tt-hw-num">${loadAvgStr}</span> <span class="tt-hw-sub">/ ${hw.cpu_cores} vCPUs</span>`;
+                if (cpuPct) cpuPct.textContent = `(${hw.load_pct}%)`;
+                if (cpuSegs) cpuSegs.innerHTML = renderSegments(hw.load_pct, 12);
+
+                const ramVal = document.getElementById("hw-ram-val");
+                const ramPct = document.getElementById("hw-ram-pct");
+                const ramSegs = document.getElementById("hw-ram-segs");
+                if (ramVal) ramVal.innerHTML = `<span class="tt-hw-num">${ramUsedGb} GB</span> <span class="tt-hw-sub">/ ${ramTotalGb}G</span>`;
+                if (ramPct) ramPct.textContent = `(${hw.ram_used_pct}%)`;
+                if (ramSegs) ramSegs.innerHTML = renderSegments(hw.ram_used_pct, 12);
+
+                const diskVal = document.getElementById("hw-disk-val");
+                const diskPct = document.getElementById("hw-disk-pct");
+                const diskSegs = document.getElementById("hw-disk-segs");
+                if (diskVal) diskVal.innerHTML = `<span class="tt-hw-num">${hw.disk_used_pct}%</span> <span class="tt-hw-sub">(${hw.disk_free} livres)</span>`;
+                if (diskPct) diskPct.textContent = ``;
+                if (diskSegs) diskSegs.innerHTML = renderSegments(hw.disk_used_pct, 12);
+            }
+        }
+
+        function handleCardClick(name) {
+            const r = currentResultsMap[name];
+            if (!r) return;
+            currentActiveName = name;
+            sheet.classList.add("open");
+            overlay.classList.add("open");
+            renderSheetData(r);
+            setTimeout(() => fetchLogs(name), 80);
+        }
+
+        function renderSheetData(r, shouldFetchLogs) {
+            let hwHtml = "";
+            if (r.hardware) {
+                const hw = r.hardware;
+                const loadAvgStr = (Number(hw.load_avg) || 0).toFixed(2);
+                const ramUsedGb = ((hw.ram_used_mb || 0) / 1024).toFixed(1);
+                const ramTotalGb = ((hw.ram_total_mb || 0) / 1024).toFixed(1);
+
+                hwHtml = `
+              <div class="tt-hw-section">
+                  <div class="tt-pm2-title">[ TELEMETRIA DA VM ]</div>
+                  <div class="tt-hw-grid">
+                      <div class="tt-hw-card">
+                          <div class="tt-hw-header">
+                              <span class="tt-hw-lbl">CPU LOAD</span>
+                              <span class="tt-hw-pct" id="hw-cpu-pct">(${hw.load_pct}%)</span>
+                          </div>
+                          <div class="tt-hw-val" id="hw-cpu-val">
+                              <span class="tt-hw-num">${loadAvgStr}</span> <span class="tt-hw-sub">/ ${hw.cpu_cores} vCPUs</span>
+                          </div>
+                          <div class="tt-hw-segments" id="hw-cpu-segs">${renderSegments(hw.load_pct, 12)}</div>
+                      </div>
+                      <div class="tt-hw-card">
+                          <div class="tt-hw-header">
+                              <span class="tt-hw-lbl">RAM</span>
+                              <span class="tt-hw-pct" id="hw-ram-pct">(${hw.ram_used_pct}%)</span>
+                          </div>
+                          <div class="tt-hw-val" id="hw-ram-val">
+                              <span class="tt-hw-num">${ramUsedGb} GB</span> <span class="tt-hw-sub">/ ${ramTotalGb}G</span>
+                          </div>
+                          <div class="tt-hw-segments" id="hw-ram-segs">${renderSegments(hw.ram_used_pct, 12)}</div>
+                      </div>
+                      <div class="tt-hw-card">
+                          <div class="tt-hw-header">
+                              <span class="tt-hw-lbl">DISCO</span>
+                              <span class="tt-hw-pct" id="hw-disk-pct"></span>
+                          </div>
+                          <div class="tt-hw-val" id="hw-disk-val">
+                              <span class="tt-hw-num">${hw.disk_used_pct}%</span> <span class="tt-hw-sub">(${hw.disk_free} livres)</span>
+                          </div>
+                          <div class="tt-hw-segments" id="hw-disk-segs">${renderSegments(hw.disk_used_pct, 12)}</div>
+                      </div>
+                  </div>
+              </div>
+            `;
+            }
+
+            let routesHtml = "";
+            if (r.hardware && r.hardware.top_routes && r.hardware.top_routes.length > 0) {
+                const routeRows = r.hardware.top_routes
+                    .map((rt) => {
+                        const m = (rt.method || "GET").toLowerCase();
+                        return `
+                  <div class="tt-route-row">
+                      <span class="tt-route-method ${m}">${rt.method}</span>
+                      <span class="tt-route-path" title="${rt.path}">${rt.path}</span>
+                      <span class="tt-route-count">${rt.count} reqs</span>
+                  </div>
+                `;
+                    })
+                    .join("");
+
+                routesHtml = `
+              <div class="tt-routes-wrap">
+                  <div class="tt-pm2-title">[ ROTAS MAIS REQUISITADAS (NGINX) ]</div>
+                  <div class="tt-routes-list">
+                      ${routeRows}
+                  </div>
+              </div>
+            `;
+            }
+
+            let pm2Html = "";
+            if (r.apps && r.apps.length > 0) {
+                const appRows = r.apps
+                    .map((a) => {
+                        const isOnline = a.status === "online";
+                        const mode = (a.mode || "fork").toLowerCase();
+                        const restarts = a.restarts || 0;
+                        const isRestartWarn = restarts > 3;
+
+                        const restartsFmt = Number(restarts).toLocaleString('pt-BR');
+                        return `
+                                <div class="pm2-card">
+                                    <div class="pm2-card-header">
+                                        <div class="pm2-name-wrap">
+                                            <span class="pm2-dot ${isOnline ? "online" : "offline"}"></span>
+                                            <span class="pm2-name" title="${a.name}">${a.name}</span>
+                                            ${a.pid ? `<span class="pm2-pid">PID ${a.pid}</span>` : ""}
+                                        </div>
+                                        <div class="pm2-tags">
+                                            <span class="tag-mode ${mode}">${mode.toUpperCase()}</span>
+                                            <span class="tag-restarts ${isRestartWarn ? "warning" : ""}">
+                                                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: -1px; margin-right: 3px; flex-shrink: 0;"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>${restartsFmt} ${restarts === 1 ? "restart" : "restarts"}
+                                            </span>
+                                        </div>
+                                    </div>
+                                    <div class="pm2-metrics">
+                                        <div class="pm2-metric-item"><span class="m-lbl">RAM</span> <span class="m-val">${a.memory_mb != null ? a.memory_mb + " MB" : "-"}</span></div>
+                                        <div class="pm2-metric-divider"></div>
+                                        <div class="pm2-metric-item"><span class="m-lbl">CPU</span> <span class="m-val">${a.cpu_percent != null ? a.cpu_percent + "%" : "0%"}</span></div>
+                                    </div>
+                                </div>
+                            `;
+                    })
+                    .join("");
+
+                pm2Html = `
+                            <div class="tt-pm2">
+                                <div class="tt-pm2-title">[ PROCESSOS PM2: ${r.apps.length} ]</div>
+                                <div class="tt-pm2-container">
+                                    ${appRows}
+                                </div>
+                            </div>
+                        `;
+            }
+
+            const hostDisplay = r.vm_ip
+                ? `${r.user || "monitor"}@${r.vm_ip}`
+                : r.hostname && r.hostname !== "-"
+                    ? `${r.user || "monitor"}@${r.hostname}`
+                    : "-";
+
+            sheetBody.innerHTML = `
+                        <div class="tt-title" style="font-size: 1.25rem; margin-top: 0.3rem;">${r.name}</div>
+                        <div class="tt-row">
+                            <span class="tt-label">STATUS</span>
+                            <span id="sheet-status-val" class="tt-val" style="font-weight: 700; color: ${r.is_online ? "#6ee7b7" : "#fca5a5"};">${r.status_label}</span>
+                        </div>
+                        <div class="tt-row">
+                            <span class="tt-label">HOST</span>
+                            <span class="tt-val">${hostDisplay || "-"}</span>
+                        </div>
+                        <div class="tt-row">
+                            <span class="tt-label">LATENCY</span>
+                            <span id="sheet-latency-val" class="tt-val" style="color: #38bdf8; font-weight: 600;">${r.latency_ms} ms</span>
+                        </div>
+
+                        ${r.url
+                    ? `
+                        <a href="${r.url}" target="_blank" rel="noopener noreferrer" class="btn-open-site">
+                            <span>OPEN APPLICATION</span>
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>
+                        </a>`
+                    : ""
+                }
+
+                        ${r.error_msg
+                    ? `
+                        <div class="tt-row" style="flex-direction: column; align-items: flex-start; gap: 0.2rem; margin-top: 0.3rem;">
+                            <span class="tt-label">DETALHE</span>
+                            <span class="tt-val" style="color: #fca5a5; text-align: left;">${r.error_msg}</span>
+                        </div>`
+                    : ""
+                }
+
+                        ${hwHtml}
+
+                        ${routesHtml}
+
+                        ${pm2Html}
+
+                        <div class="log-terminal-wrap">
+                            <div class="log-terminal-title">
+                                <span>[ LOGS PM2 ]</span>
+                                <span id="log-status-badge" style="color: #64748b; font-size: 0.68rem; letter-spacing:0.05em;">AGUARDANDO</span>
+                            </div>
+                            <div class="log-terminal" id="log-output">
+                                <div class="log-empty-msg">
+                                    <svg class="spin-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#38bdf8" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="2" x2="12" y2="6"></line><line x1="12" y1="18" x2="12" y2="22"></line><line x1="4.93" y1="4.93" x2="7.76" y2="7.76"></line><line x1="16.24" y1="16.24" x2="19.07" y2="19.07"></line><line x1="2" y1="12" x2="6" y2="12"></line><line x1="18" y1="12" x2="22" y2="12"></line><line x1="4.93" y1="19.07" x2="7.76" y2="16.24"></line><line x1="16.24" y1="7.76" x2="19.07" y2="4.93"></line></svg>
+                                    <span style="color:#38bdf8; font-size:0.8rem; margin-top:0.3rem; font-weight:600;">Carregando logs...</span>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+        }
+
+        async function refreshAllSheetData() {
+            const icon = document.getElementById("sheet-refresh-icon");
+            const btn = document.getElementById("sheet-refresh-btn");
+            if (btn) btn.disabled = true;
+            if (icon) icon.classList.add("spin-icon");
+
+            try {
+                await fetchStatus();
+                if (currentActiveName && currentResultsMap[currentActiveName]) {
+                    const r = currentResultsMap[currentActiveName];
+                    updateSheetMetrics(r);
+                    await fetchLogs(currentActiveName);
+                }
+            } finally {
+                if (btn) btn.disabled = false;
+                if (icon) {
+                    setTimeout(() => icon.classList.remove("spin-icon"), 400);
+                }
+            }
+        }
+
+        async function fetchLogs(siteName) {
+            const outElem = document.getElementById("log-output");
+            const badgeElem = document.getElementById("log-status-badge");
+            const btnElem = document.getElementById("log-refresh-btn");
+            const iconElem = document.getElementById("log-refresh-icon");
+            if (!outElem) return;
+
+            if (btnElem) btnElem.disabled = true;
+            if (iconElem) iconElem.classList.add("spin-icon");
+            if (badgeElem) badgeElem.innerText = "CARREGANDO...";
+
+            try {
+                const res = await fetch("/api/logs?name=" + encodeURIComponent(siteName), { headers: getAuthHeaders() });
+                const data = await res.json();
+
+                if (currentActiveName !== siteName) return;
+
+                if (data.has_pm2 && data.logs) {
+                    const pre = document.createElement("pre");
+                    pre.className = "log-content-text";
+                    pre.textContent = data.logs;
+                    outElem.innerHTML = "";
+                    outElem.appendChild(pre);
+                    outElem.scrollTop = outElem.scrollHeight;
+                    if (badgeElem) badgeElem.innerText = "PM2 SSH";
+                } else {
+                    outElem.innerHTML = `
+                                <div class="log-empty-msg">
+                                    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#64748b" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="8" rx="2" ry="2"></rect><rect x="2" y="14" width="20" height="8" rx="2" ry="2"></rect><line x1="6" y1="6" x2="6.01" y2="6"></line><line x1="6" y1="18" x2="6.01" y2="18"></line></svg>
+                                    <span style="font-weight: 600; color: #f1f5f9; font-size: 0.86rem; margin-top: 0.2rem;">Endpoint HTTP Externo</span>
+                                    <span style="font-size: 0.75rem; color: #64748b; max-width: 320px; line-height: 1.4;">${data.logs || "Sem servidor SSH ou processos PM2 vinculados a este servico."}</span>
+                                </div>
+                            `;
+                    if (badgeElem) badgeElem.innerText = "HTTP EXT";
+                }
+            } catch (err) {
+                if (outElem) {
+                    outElem.innerHTML = `
+                                <div class="log-empty-msg">
+                                    <span style="color: #fca5a5;">Erro ao consultar logs: ${err}</span>
+                                </div>
+                            `;
+                }
+                if (badgeElem) badgeElem.innerText = "ERRO";
+            } finally {
+                if (btnElem) btnElem.disabled = false;
+                if (iconElem) iconElem.classList.remove("spin-icon");
+            }
+        }
+
+        function closeSheet() {
+            sheet.classList.remove("open");
+            overlay.classList.remove("open");
+            currentActiveName = null;
+        }
+
+        document.addEventListener("keydown", (e) => {
+            if (e.key === "Escape") closeSheet();
+        });
+
+        const resizer = document.getElementById("sheet-resizer");
+        let isResizing = false;
+        let startX = 0;
+        let startWidth = 0;
+
+        const savedSheetWidth = localStorage.getItem("sentinel_sheet_width");
+        if (savedSheetWidth && parseInt(savedSheetWidth, 10) >= 380) {
+            sheet.style.width = parseInt(savedSheetWidth, 10) + "px";
+        }
+
+        if (resizer) {
+            resizer.addEventListener("mousedown", (e) => {
+                isResizing = true;
+                startX = e.clientX;
+                startWidth = sheet.getBoundingClientRect().width;
+                sheet.classList.add("resizing");
+                document.body.style.cursor = "ew-resize";
+                document.body.style.userSelect = "none";
+                e.preventDefault();
+            });
+
+            window.addEventListener("mousemove", (e) => {
+                if (!isResizing) return;
+                const deltaX = startX - e.clientX;
+                const minWidth = 420;
+                const maxWidth = window.innerWidth - 32;
+                let newWidth = startWidth + deltaX;
+                newWidth = Math.max(minWidth, Math.min(maxWidth, newWidth));
+                sheet.style.width = newWidth + "px";
+            });
+
+            window.addEventListener("mouseup", () => {
+                if (!isResizing) return;
+                isResizing = false;
+                sheet.classList.remove("resizing");
+                document.body.style.cursor = "";
+                document.body.style.userSelect = "";
+                const currentW = Math.round(sheet.getBoundingClientRect().width);
+                localStorage.setItem("sentinel_sheet_width", currentW);
+            });
+
+            resizer.addEventListener("touchstart", (e) => {
+                if (e.touches.length !== 1) return;
+                isResizing = true;
+                startX = e.touches[0].clientX;
+                startWidth = sheet.getBoundingClientRect().width;
+                sheet.classList.add("resizing");
+            }, { passive: true });
+
+            window.addEventListener("touchmove", (e) => {
+                if (!isResizing || e.touches.length !== 1) return;
+                const deltaX = startX - e.touches[0].clientX;
+                const minWidth = 360;
+                const maxWidth = window.innerWidth - 24;
+                let newWidth = startWidth + deltaX;
+                newWidth = Math.max(minWidth, Math.min(maxWidth, newWidth));
+                sheet.style.width = newWidth + "px";
+            }, { passive: true });
+
+            window.addEventListener("touchend", () => {
+                if (!isResizing) return;
+                isResizing = false;
+                sheet.classList.remove("resizing");
+                const currentW = Math.round(sheet.getBoundingClientRect().width);
+                localStorage.setItem("sentinel_sheet_width", currentW);
+            });
+        }
+
+        fetchStatus();
+        setInterval(fetchStatus, 10000);
+
+    </script>
+</body>
+
+</html>

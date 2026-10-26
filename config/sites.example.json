@@ -1,0 +1,28 @@
+[
+    {
+        "name": "Public website",
+        "url": "https://example.com",
+        "ip": "-",
+        "hostname": "example.com",
+        "type": "http",
+        "size": "hero"
+    },
+    {
+        "name": "Web app",
+        "url": "https://app.example.com/",
+        "ip": "192.0.2.10",
+        "hostname": "web-01",
+        "user": "monitor",
+        "type": "vm",
+        "size": "highlight"
+    },
+    {
+        "name": "Internal API",
+        "url": "https://api.example.com/health",
+        "ip": "192.0.2.11",
+        "hostname": "api-01",
+        "user": "monitor",
+        "type": "vm",
+        "size": "small"
+    }
+]

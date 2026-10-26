@@ -1,0 +1,62 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual Environment
+.venv/
+venv/
+ENV/
+env/
+
+# Environment Variables & Secrets
+.env
+.env.*
+!.env.example
+config/.env
+config/.env.*
+!config/.env.example
+
+# SSH Keys & Certificates
+key
+keys/*
+!keys/.gitkeep
+*.pem
+*.key
+*.pub
+id_rsa
+id_rsa.pub
+id_ed25519
+id_ed25519.pub
+
+# IDE & Editors
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Logs & Temporary files
+*.log
+*.tmp
+/index.html
+# Real inventory and local runtime files
+config/sites.json
+sites.json
