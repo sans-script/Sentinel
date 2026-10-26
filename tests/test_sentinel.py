@@ -97,3 +97,13 @@ def test_example_targets_are_well_formed():
         assert target["size"] in ("hero", "highlight", "small")
         if target["type"] == "vm":
             assert target["ip"] != "-"
+
+
+def test_demo_results_cover_every_demo_target():
+    targets = json.loads((ROOT / "config" / "sites.demo.json").read_text(encoding="utf-8"))
+    results = sentinel.demo_results(targets)
+    assert len(results) == len(targets) == 52
+    assert {r.status_label for r in results} == {"ONLINE", "UNSTABLE", "OFFLINE"}
+    vms = [r for r in results if r.check_type == "vm" and r.status_label != "OFFLINE"]
+    assert all(r.hardware and r.apps for r in vms)
+    assert all(t["ip"].startswith("192.0.2.") for t in targets if t["type"] == "vm")

@@ -4,6 +4,10 @@ A small, dependency-light monitor for servers that run Node apps under **PM2** b
 
 It is meant as a base you can point at any group of hosts: one Python file, one HTML file, a JSON list of targets.
 
+![Sentinel dashboard showing 52 demo targets](docs/dashboard.png)
+
+*The screenshot uses the built-in demo mode, with made-up services and telemetry.*
+
 ## What it does
 
 - **HTTP checks** for every target: availability, latency and a readable reason when it is down (TLS error, timeout, refused).
@@ -23,14 +27,37 @@ cp config/.env.example config/.env              # then edit it
 
 Open `http://127.0.0.1:8000`. With no `config/sites.json`, the example targets are used so you can see the dashboard.
 
+To see it with a full set of services and telemetry without connecting to anything, start it in demo mode:
+
+```bash
+SENTINEL_DEMO=1 python sentinel.py       # PowerShell: $env:SENTINEL_DEMO=1; python sentinel.py
+```
+
+Demo mode reads `config/sites.demo.json` (52 invented targets) and serves made-up status, PM2 processes and logs. It makes no HTTP or SSH connections.
+
 ## Configuration
 
 ### Targets: `config/sites.json`
 
 ```json
 [
-  { "name": "Public website", "url": "https://example.com", "ip": "-", "hostname": "example.com", "type": "http", "size": "hero" },
-  { "name": "Web app", "url": "https://app.example.com/", "ip": "192.0.2.10", "hostname": "web-01", "user": "monitor", "type": "vm", "size": "highlight" }
+  {
+    "name": "Public website",
+    "url": "https://example.com",
+    "ip": "-",
+    "hostname": "example.com",
+    "type": "http",
+    "size": "hero"
+  },
+  {
+    "name": "Web app",
+    "url": "https://app.example.com/",
+    "ip": "192.0.2.10",
+    "hostname": "web-01",
+    "user": "monitor",
+    "type": "vm",
+    "size": "highlight"
+  }
 ]
 ```
 

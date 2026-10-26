@@ -17,10 +17,28 @@
         "size": "highlight"
     },
     {
-        "name": "Internal API",
+        "name": "Orders API",
         "url": "https://api.example.com/health",
         "ip": "192.0.2.11",
         "hostname": "api-01",
+        "user": "monitor",
+        "type": "vm",
+        "size": "highlight"
+    },
+    {
+        "name": "Background jobs",
+        "url": "https://jobs.example.com/health",
+        "ip": "192.0.2.12",
+        "hostname": "worker-01",
+        "user": "monitor",
+        "type": "vm",
+        "size": "highlight"
+    },
+    {
+        "name": "Docs",
+        "url": "https://docs.example.com/",
+        "ip": "192.0.2.13",
+        "hostname": "docs-01",
         "user": "monitor",
         "type": "vm",
         "size": "small"

@@ -1,4 +1,5 @@
 import time
+import random
 import concurrent.futures
 import warnings
 import urllib3
@@ -78,6 +79,8 @@ SENTINEL_API_TOKEN = os.environ.get("SENTINEL_API_TOKEN", "").strip()
 ALLOWED_ORIGINS = [o.strip() for o in os.environ.get("ALLOWED_ORIGINS", "").split(",") if o.strip()]
 VERIFY_SSL = os.environ.get("VERIFY_SSL", "true").lower() in ("true", "1")
 SSH_HOST_KEY_POLICY = os.environ.get("SSH_HOST_KEY_POLICY", "strict").strip().lower()
+# Demo mode serves made-up telemetry for config/sites.demo.json; it never connects anywhere.
+DEMO = os.environ.get("SENTINEL_DEMO", "").strip().lower() in ("1", "true")
 SSH_KNOWN_HOSTS = os.environ.get("SSH_KNOWN_HOSTS", "").strip()
 
 LOOPBACK_HOSTS = ("127.0.0.1", "localhost", "::1")
@@ -177,7 +180,7 @@ def connect_ssh(vm_ip: str, user: str = "monitor", timeout: int = 5) -> paramiko
     )
     return client
 
-SITES_PATH_CANDIDATES = [
+SITES_PATH_CANDIDATES = ([os.path.join(BASE_DIR, "config", "sites.demo.json")] if DEMO else []) + [
     os.path.join(BASE_DIR, "config", "sites.json"),
     os.path.join(BASE_DIR, "sites.json"),
     os.path.join(BASE_DIR, "config", "sites.example.json"),
@@ -447,6 +450,8 @@ LOG_CACHE: Dict[str, dict] = {}
 LOG_CACHE_LOCK = threading.Lock()
 
 def fetch_vm_logs(vm_ip: str, user: str = "monitor", lines: int = 35) -> str:
+    if DEMO:
+        return DEMO_LOGS
     cache_key = f"{vm_ip}_{lines}"
     now = time.time()
     with LOG_CACHE_LOCK:
@@ -558,7 +563,7 @@ def check_item(target: dict) -> CheckResult:
         if fails == 1:
             status_cls = "status-warning"
             final_status_label = "UNSTABLE"
-            final_error_msg = http_error or "Instabilidade na rota HTTP"
+            final_error_msg = http_error or "Unstable HTTP route"
         else:
             status_cls = "status-down"
             final_status_label = "OFFLINE"
@@ -584,6 +589,90 @@ def check_item(target: dict) -> CheckResult:
         size=size,
         user=user
     )
+
+DEMO_LOGS = "\n".join([
+    "0|api  | 2026-10-26T14:02:11.482Z GET /v1/orders 200 18ms",
+    "0|api  | 2026-10-26T14:02:11.903Z GET /v1/orders/4812 200 9ms",
+    "0|api  | 2026-10-26T14:02:12.377Z POST /v1/orders 201 41ms",
+    "0|api  | 2026-10-26T14:02:13.120Z GET /health 200 1ms",
+    "1|worker | 2026-10-26T14:02:14.004Z job email.send completed in 212ms",
+    "1|worker | 2026-10-26T14:02:14.870Z job report.daily queued",
+])
+
+# (app name, status, memory MB, cpu %, restarts, days up, mode) per demo VM
+DEMO_UNSTABLE = {"Background jobs", "Search", "Video transcoder", "Maps tiles"}
+DEMO_OFFLINE = {"Legacy reports", "SMS gateway"}
+
+DEMO_VMS = {
+    "192.0.2.10": ("app-01", 4, 0.42, 5900, 31, 6.2, [('web', 'online', 212.4, 3.1, 0, 41, 'cluster'), ('web-cache', 'online', 88.0, 0.4, 1, 41, 'fork')], [(1842, 'GET', '/'), (1190, 'GET', '/pricing'), (633, 'GET', '/api/session'), (408, 'POST', '/api/events')]),
+    "192.0.2.11": ("api-01", 4, 1.35, 7600, 58, 14.8, [('orders-api', 'online', 301.7, 12.5, 2, 18, 'cluster'), ('orders-queue', 'online', 96.2, 1.8, 0, 18, 'fork')], [(5210, 'GET', '/v1/orders'), (2204, 'GET', '/health'), (1377, 'POST', '/v1/orders'), (902, 'GET', '/v1/customers')]),
+    "192.0.2.12": ("auth-01", 2, 0.21, 3900, 24, 3.9, [('auth', 'online', 143.9, 1.2, 0, 63, 'fork')], [(3120, 'POST', '/token'), (980, 'GET', '/jwks.json'), (402, 'POST', '/logout')]),
+    "192.0.2.13": ("jobs-01", 8, 5.9, 15200, 79, 31.0, [('worker', 'online', 512.8, 41.6, 7, 9, 'cluster'), ('scheduler', 'online', 74.5, 0.3, 0, 9, 'fork'), ('report-builder', 'errored', 0.0, 0.0, 15, 0, 'fork')], []),
+    "192.0.2.14": ("pay-01", 4, 0.66, 7600, 44, 9.1, [('payments', 'online', 188.2, 4.4, 0, 27, 'cluster'), ('webhooks', 'online', 72.6, 0.9, 2, 27, 'fork')], [(1604, 'POST', '/v1/charges'), (1210, 'POST', '/webhooks/provider'), (388, 'GET', '/v1/charges/status')]),
+    "192.0.2.15": ("search-01", 4, 3.1, 7600, 71, 52.3, [('search-api', 'online', 402.5, 22.8, 4, 12, 'cluster'), ('indexer', 'online', 255.1, 9.6, 1, 12, 'fork')], [(4410, 'GET', '/search'), (1870, 'GET', '/suggest'), (160, 'POST', '/index')]),
+    "192.0.2.16": ("notify-01", 2, 0.18, 3900, 29, 7.4, [('notifier', 'online', 119.3, 0.7, 0, 35, 'fork'), ('mailer', 'online', 98.8, 0.5, 0, 35, 'fork')], [(842, 'POST', '/send'), (311, 'GET', '/preferences')]),
+    "192.0.2.17": ("media-01", 4, 0.35, 7600, 38, 68.9, [('media', 'online', 164.7, 1.9, 0, 52, 'cluster')], [(6120, 'GET', '/img/thumb'), (2210, 'GET', '/img/full'), (190, 'POST', '/upload')]),
+    "192.0.2.18": ("admin-01", 2, 0.08, 3900, 22, 12.0, [('admin', 'online', 128.3, 0.5, 0, 22, 'fork')], [(214, 'GET', '/'), (97, 'GET', '/users'), (41, 'POST', '/login')]),
+    "192.0.2.19": ("docs-01", 2, 0.05, 3900, 18, 11.0, [('docs', 'online', 96.1, 0.2, 0, 77, 'fork')], [(772, 'GET', '/'), (341, 'GET', '/getting-started'), (190, 'GET', '/reference')]),
+    "192.0.2.20": ("staging-01", 2, 0.12, 3900, 33, 21.0, [('staging-web', 'online', 150.2, 0.6, 3, 4, 'fork')], [(88, 'GET', '/'), (41, 'GET', '/api/ping')]),
+    "192.0.2.21": ("metrics-01", 2, 0.27, 3900, 47, 36.5, [('collector', 'online', 134.0, 2.2, 0, 90, 'fork')], [(1980, 'POST', '/ingest'), (240, 'GET', '/query')]),
+    "192.0.2.22": ("legacy-01", 2, 0.0, 0, 0, 0, [], []),
+}
+
+
+def demo_synthetic(ip: str, name: str) -> tuple:
+    """Stable made-up telemetry for demo targets that have no hand-written entry."""
+    rng = random.Random(ip)
+    cores = rng.choice([2, 2, 4, 4, 8])
+    load = round(rng.uniform(0.04, cores * 0.55), 2)
+    ram_total = cores * 1900
+    slug = name.lower().replace(" ", "-")
+    apps = [(slug, "online", round(rng.uniform(70, 380), 1), round(rng.uniform(0.1, 14), 1), rng.choice([0, 0, 0, 1, 2]),
+             rng.randint(2, 80), rng.choice(["fork", "cluster"]))]
+    if rng.random() < 0.4:
+        apps.append((slug + "-worker", "online", round(rng.uniform(60, 200), 1), round(rng.uniform(0.1, 6), 1), 0,
+                     rng.randint(2, 80), "fork"))
+    routes = [(rng.randint(60, 3200), m, p) for m, p in
+              rng.sample([("GET", "/"), ("GET", "/health"), ("POST", "/api/events"), ("GET", "/api/items"), ("GET", "/static/app.js")], 3)]
+    routes.sort(reverse=True)
+    return (slug + "-01", cores, load, ram_total, rng.randint(18, 72), round(rng.uniform(6, 64), 1), apps, routes)
+
+
+def demo_results(targets: List[dict]) -> List[CheckResult]:
+    results = []
+    for t in targets:
+        is_vm = t.get("type") == "vm"
+        info = DEMO_VMS.get(t.get("ip", "")) or (demo_synthetic(t["ip"], t["name"]) if is_vm else None)
+        apps, hardware = [], None
+        if is_vm and info:
+            host, cores, load, ram_total, ram_pct, disk_pct, raw_apps, routes = info
+            now_ms = int(time.time() * 1000)
+            apps = [
+                PM2App(name=n, status=s, pid=None if s == "errored" else 1000 + i, memory_mb=m, cpu_percent=c,
+                       restarts=r, uptime_ms=now_ms - int(days * 86400 * 1000), mode=mode)
+                for i, (n, s, m, c, r, days, mode) in enumerate(raw_apps)
+            ]
+            hardware = {
+                "cpu_cores": cores, "load_avg": load, "load_pct": int(round(load / cores * 100)),
+                "ram_total_mb": ram_total, "ram_used_mb": int(ram_total * ram_pct / 100), "ram_used_pct": ram_pct,
+                "disk_free": f"{100 - int(disk_pct)}%", "disk_used_pct": int(disk_pct),
+                "top_routes": [{"count": c, "method": m, "path": p} for c, m, p in routes],
+            }
+        offline = t["name"] in DEMO_OFFLINE
+        degraded = t["name"] in DEMO_UNSTABLE or offline
+        results.append(CheckResult(
+            name=t["name"], url=t.get("url", ""), ip=t.get("ip", ""), vm_ip=t.get("ip") if is_vm else None,
+            hostname=t.get("hostname", ""), is_online=not degraded,
+            latency_ms=0 if offline else (420 if degraded else 38 + 7 * len(results)),
+            status_label="OFFLINE" if offline else ("UNSTABLE" if degraded else "ONLINE"),
+            error_msg=("Connection refused or server unreachable" if offline else "Connection timed out (>6s)") if degraded else "",
+            pm2_installed=bool(apps), apps=apps, hardware=hardware,
+            check_type="vm" if is_vm else "http",
+            status_cls="status-down" if offline else ("status-warning" if degraded else "status-up"),
+            size=t.get("size", "highlight"), user=t.get("user", "monitor"),
+        ))
+    return results
+
 
 DASHBOARD_PATH_CANDIDATES = [
     os.path.join(BASE_DIR, "web", "dashboard.html"),
@@ -738,6 +827,8 @@ def start_server():
     server.serve_forever()
 
 def run_single_cycle():
+    if DEMO:
+        return demo_results(MONITOR_TARGETS)
 
     vm_targets = [t for t in MONITOR_TARGETS if t.get("type") == "vm"]
     unique_vms = {}
